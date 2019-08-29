@@ -1,5 +1,6 @@
 import os
 import tempfile
+from datetime import datetime
 
 import boto3
 import matplotlib.image as mpimg
@@ -12,6 +13,42 @@ from PIL import Image
 
 # These are the only events we want to get coordinates for
 MAPPED_EVENTS = ('SHOT', 'MISSED_SHOT', 'GOAL')
+
+def get_game_id(event: dict):
+    """ Takes the event & tries to determine & validate the Game ID.
+
+    Args:
+        event: event passed into the AWS Lambda
+
+    Returns:
+        dict: {status, game_id, msg}
+    """
+
+     # Get the Game ID from the event parameter passed into the handler or via environment variable
+    game_id = event.get('game_id')
+    game_id = game_id if game_id is not None else os.environ.get('GAMEID')
+    if not game_id or game_id is None:
+        return {"status": False, "msg": "An NHL Game ID is required for this script to run."}
+
+    # Validate Game ID meets all criteria to actually run this script
+    # In-Season game validation will happen at the API endpoint
+    game_id = str(game_id)
+    season = game_id[0:4]
+    game_type = game_id[4:6]
+    game_number = game_id[6:10]
+
+    if int(season) > datetime.now().year:
+        return {"status": False, "msg": "Invalid season detected in the specified Game ID."}
+
+    if int(game_type) > 4:
+        return {"status": False, "msg": "Invalid game type detected in the specified Game ID."}
+
+    if int(game_number) > 1271:
+        return {"status": False, "msg": "Invalid game number detected in the specified Game ID."}
+
+    # If all validations pass, return our game_id
+    return {"status": True, "game_id": game_id}
+
 
 def all_plays_parser(home_team: str, away_team: str, all_plays: dict):
     """ Takes the JSON object of all game events and generates a pandas dataframe.
@@ -181,15 +218,27 @@ def send_shotmap_tweet(completed_path: str, tweet_text: str):
 
 
 def lambda_handler(event, context):
+    game_id_dict = get_game_id(event)
+    game_id_status = game_id_dict['status']
+
+    if not game_id_status:
+        return {"status": False, "msg": game_id_dict['msg']}
+
+    # If status is True, set the game_id variable
+    game_id = game_id_dict['game_id']
+
     # Until we have a trigger for this function, just go get the live feed of a particular game.
-    game_id = os.environ.get('GAMEID')
     feed = requests.get(f'https://statsapi.web.nhl.com/api/v1/game/{game_id}/feed/live').json()
     home_team = feed['gameData']['teams']['home']['name']
     away_team = feed['gameData']['teams']['away']['name']
     all_plays = feed['liveData']['plays']['allPlays']
 
-    home_df, away_df = all_plays_parser(home_team, away_team, all_plays)
+    # If all_plays is empty, return a message & exit the script
+    if not all_plays:
+        return {"status": False, "msg": "Cannot generate a shotmap or a game that has not yet happened."}
 
+
+    home_df, away_df = all_plays_parser(home_team, away_team, all_plays)
     home_df_json = home_df.to_json()
     away_df_json = away_df.to_json()
 

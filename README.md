@@ -42,10 +42,19 @@ $ aws lambda update-function-code --function-name <lambda-function-name> --s3-bu
 ## Testing / Running the Function
 In order to make this is as *dynamic* as possible, most of the values that can be changed are stored in Environment Variables within the function itself. The following need to be set for this function to properly run.
 
+**Required**
 - debug_twtr_access_secret
 - debug_twtr_access_token
 - debug_twtr_consumer_key
 - debug_twtr_consumer_secret
-- GAMEID (Valid NHL Game ID, ex: 2018020020)
 - S3_BUCKET (the S3 bucket that holds necessary objects)
 - BLANK_SHOTMAP (the key of the blank shotmap image)
+
+**Optional**
+- GAMEID (Valid NHL Game ID, ex: 2018020020)
+
+The NHL Game ID should be passed in via the event parameter into the handler in a dictionary with key `game_id` as per the below sample.
+```python
+> print(event)
+{'game_id': '2018020020'}
+```
