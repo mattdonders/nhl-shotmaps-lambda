@@ -30,15 +30,15 @@ def send_shotmap_tweet(testing: bool, completed_path: str, tweet_text: str):
 
     # Get keys from environment variables based on if this is a "test-run" or not.
     if testing:
-        consumer_key = os.environ.get("debug_twtr_consumer_key")
-        consumer_secret = os.environ.get("debug_twtr_consumer_secret")
-        access_token = os.environ.get("debug_twtr_access_token")
-        access_secret = os.environ.get("debug_twtr_access_secret")
+        consumer_key = os.environ.get("DEBUG_TWTR_CONSUMER_KEY")
+        consumer_secret = os.environ.get("DEBUG_TWTR_CONSUMER_SECRET")
+        access_token = os.environ.get("DEBUG_TWTR_ACCESS_TOKEN")
+        access_secret = os.environ.get("DEBUG_TWTR_ACCESS_SECRET")
     else:
-        consumer_key = os.environ.get("wtr_consumer_key")
-        consumer_secret = os.environ.get("twtr_consumer_secret")
-        access_token = os.environ.get("twtr_access_token")
-        access_secret = os.environ.get("twtr_access_secret")
+        consumer_key = os.environ.get("TWTR_CONSUMER_KEY")
+        consumer_secret = os.environ.get("TWTR_CONSUMER_SECRET")
+        access_token = os.environ.get("TWTR_ACCESS_TOKEN")
+        access_secret = os.environ.get("TWTR_ACCESS_SECRET")
 
     auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
     auth.set_access_token(access_token, access_secret)
@@ -95,6 +95,8 @@ def get_team_from_abbreviation(abbreviation: str):
         "VGK": {"team_name": "Vegas Golden Knights", "short_name": "Golden Knights"},
     }
 
+    return team_name_dict.get(abbreviation)
+
 
 def lambda_handler(event, context):
     # logging.info(event)
@@ -105,6 +107,13 @@ def lambda_handler(event, context):
     pbp_json = json.dumps(pbp_json) if isinstance(pbp_json, dict) else pbp_json
     pbp_df = pd.read_json(pbp_json)
 
+    # Fix Team Abbreviations (in both DFs)
+    team_corrections = {"L.A": "LAK", "N.J": "NJD", "S.J": "SJS", "T.B": "TBL"}
+    pbp_df.replace(
+        {"ev_team": team_corrections, "home_team": team_corrections, "away_team": team_corrections},
+        inplace=True,
+    )
+
     # Get Home & Away team names from DF
     home_team = pbp_df.home_team.unique()[0]
     away_team = pbp_df.away_team.unique()[0]
@@ -112,13 +121,6 @@ def lambda_handler(event, context):
     cols = " ".join(pbp_df.columns)
     df_stats = f"{cols}\nDF Stats: {len(pbp_df.index)} rows x {len(pbp_df.columns)} columns\nHome: {home_team}\nAway: {away_team}"
     print(df_stats)
-
-    # Fix Team Abbreviations (in both DFs)
-    team_corrections = {"L.A": "LAK", "N.J": "NJD", "S.J": "SJS", "T.B": "TBL"}
-    pbp_df.replace(
-        {"ev_team": team_corrections, "home_team": team_corrections, "away_team": team_corrections},
-        inplace=True,
-    )
 
     # Fix elapsed seconds first
     pbp_df = clean_pbp.fix_seconds_elapsed(pbp_df)
@@ -137,6 +139,9 @@ def lambda_handler(event, context):
     logging.info("Fixing periods & splitting dataframes into two teams.")
     pbp_df = clean_pbp.fix_df_periods(pbp_df)
 
+    # Sort the dataframe by seconds elapsed so the last row is the latest event
+    pbp_df = pbp_df.sort_values("seconds_elapsed")
+
     logging.info("Extracting only corsi events to graph on the shotmap.")
     home_df, away_df = clean_pbp.split_df(pbp_df, home_team)
 
@@ -151,27 +156,29 @@ def lambda_handler(event, context):
 
     # Get items from the Datafrmae for Description Purposes
     last_row = pbp_df.iloc[-1]
+    logging.info(last_row)
     period = last_row.period
     period_ordinal = ordinal(period)
     home_score = last_row.home_score
     away_score = last_row.away_score
 
-    home_team = get_team_from_abbreviation(home_team)
+    home_team_names = get_team_from_abbreviation(home_team)
+    away_team_names = get_team_from_abbreviation(away_team)
 
     if home_score > away_score:
         tweet_text = (
-            f"At the end of the {period_ordinal} period the {home_team.get('short_name')} "
-            f"lead the {home_team.get('short_name')} by a score of {home_score} to {away_score}."
+            f"At the end of the {period_ordinal} period the {home_team_names.get('short_name')} "
+            f"lead the {away_team_names.get('short_name')} by a score of {home_score} to {away_score}."
         )
     elif away_score > home_score:
         tweet_text = (
-            f"At the end of the {period_ordinal} period the {home_team.get('short_name')} "
-            f"trail the {home_team.get('short_name')} by a score of {home_score} to {away_score}."
+            f"At the end of the {period_ordinal} period the {home_team_names.get('short_name')} "
+            f"trail the {away_team_names.get('short_name')} by a score of {home_score} to {away_score}."
         )
     else:
         tweet_text = (
-            f"At the end of the {period_ordinal} period the {home_team.get('short_name')} "
-            f"and the {home_team.get('short_name')} are tied at {home_score}."
+            f"At the end of the {period_ordinal} period the {home_team_names.get('short_name')} "
+            f"and the {away_team_names.get('short_name')} are tied at {home_score}."
         )
 
     # Send the completed shotmap tweet
