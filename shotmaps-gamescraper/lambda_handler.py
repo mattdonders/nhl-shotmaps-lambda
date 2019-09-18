@@ -78,8 +78,6 @@ def get_game_id(event: dict):
 
 
 def lambda_handler(event, context):
-    global TESTING
-
     LAMBDA_GENERATOR = os.environ.get("LAMBDA_GENERATOR")
     game_id_dict = get_game_id(event)
     game_id_status = game_id_dict["status"]
@@ -107,6 +105,8 @@ def lambda_handler(event, context):
 
     pbp_json = pbp.to_json()
     payload = {"pbp_json": pbp_json, "testing": TESTING}
+
+    logging.info("Scraping completed. Triggering the generator & twitter Lambda.")
 
     invoke_response = lambda_client.invoke(
         FunctionName=LAMBDA_GENERATOR, InvocationType="Event", Payload=json.dumps(payload)
