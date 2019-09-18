@@ -154,13 +154,14 @@ def lambda_handler(event, context):
     # Generate the Shotmap
     completed_path = shotmap.generate_shotmap(home_df=home_df, away_df=away_df)
 
-    # Get items from the Datafrmae for Description Purposes
-    last_row = pbp_df.iloc[-1]
-    logging.info(last_row)
-    period = last_row.period
+    # Instead of using the last row, try using the max function across those columns
+    period = pbp_df.period.max()
+    print(period)
     period_ordinal = ordinal(period)
-    home_score = last_row.home_score
-    away_score = last_row.away_score
+    home_score = pbp_df.home_score.max()
+    print(home_score)
+    away_score = pbp_df.away_score.max()
+    print(away_score)
 
     home_team_names = get_team_from_abbreviation(home_team)
     away_team_names = get_team_from_abbreviation(away_team)
@@ -183,6 +184,6 @@ def lambda_handler(event, context):
 
     # Send the completed shotmap tweet
     status = send_shotmap_tweet(
-        testing=testing, completed_path=completed_path, tweet_text="Sent from our new AWS Lambda function!"
+        testing=testing, completed_path=completed_path, tweet_text=tweet_text
     )
 
