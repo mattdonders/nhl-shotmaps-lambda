@@ -132,10 +132,13 @@ def lambda_handler(event, context):
     # Then run all other cleaning & stat generation functions at once
     pbp_df = clean_pbp.run_all_stats(pbp_df)
 
+    # Get the final event (period end or game end)
+    game_end_events = len(pbp_df.loc[pbp_df["event"] == "GEND"])
+    game_end = True if game_end_events > 0 else False
+
     # Filter out for Corsi-only events
     logging.info("Removing all non-corsi events as they should not be graphed.")
     pbp_df = pbp_df.loc[pbp_df["is_corsi"] == 1]
-    print(pbp_df.event.unique())
 
     pbp_df.replace(to_replace=["", "NA"], value=pd.np.nan, inplace=True)
 
@@ -152,10 +155,6 @@ def lambda_handler(event, context):
     home_df_5v5 = home_df.loc[home_df["strength"] == "5x5"]
     away_df_5v5 = away_df.loc[away_df["strength"] == "5x5"]
 
-    # Generate the Shotmap
-    completed_path = shotmap.generate_shotmap(home_df=home_df, away_df=away_df)
-    completed_path_5v5 = shotmap.generate_shotmap(home_df=home_df_5v5, away_df=away_df_5v5)
-
     # Instead of using the last row, try using the max function across those columns
     period = pbp_df.period.max()
     print(period)
@@ -168,22 +167,58 @@ def lambda_handler(event, context):
     home_team_names = get_team_from_abbreviation(home_team)
     away_team_names = get_team_from_abbreviation(away_team)
 
-    if home_score > away_score:
-        tweet_text = (
-            f"At the end of the {period_ordinal} period the {home_team_names.get('short_name')} "
-            f"lead the {away_team_names.get('short_name')} by a score of {home_score} to {away_score}."
-        )
-    elif away_score > home_score:
-        tweet_text = (
-            f"At the end of the {period_ordinal} period the {home_team_names.get('short_name')} "
-            f"trail the {away_team_names.get('short_name')} by a score of {home_score} to {away_score}."
-        )
-    else:
-        tweet_text = (
-            f"At the end of the {period_ordinal} period the {home_team_names.get('short_name')} "
-            f"and the {away_team_names.get('short_name')} are tied at {home_score}."
-        )
+    # Generate the Shotmap
+    shotmap_details = {
+        "home": home_team_names,
+        "away": away_team_names,
+        "period": period_ordinal,
+        "game_end": game_end,
+    }
+    completed_path = shotmap.generate_shotmap(
+        home_df=home_df, away_df=away_df, details=shotmap_details, strength="All"
+    )
+    completed_path_5v5 = shotmap.generate_shotmap(
+        home_df=home_df_5v5, away_df=away_df_5v5, details=shotmap_details, strength="5v5"
+    )
+
+    # Generate Tweet Strings Dynamically
+    home_team_short = home_team_names["short_name"]
+    away_team_short = away_team_names["short_name"]
+    game_hashtag = f"#{away_team}vs{home_team}"
+    game_status = "game" if game_end else f"{period_ordinal} period"
+
+    if home_score > away_score and game_end:
+        lead_trail_status = "defeat"
+    elif home_score > away_score and not game_end:
+        lead_trail_status = "lead"
+    elif home_score < away_score and game_end:
+        lead_trail_status = "lose to"
+    elif home_score < away_score and not game_end:
+        lead_trail_status = "trail"
+
+    tweet_text = (
+        f"At the end of the {game_status} the {home_team_short} "
+        f"{lead_trail_status} the {away_team_short} by a score of {home_score} to {away_score}."
+        f"\n\n{game_hashtag}"
+    )
+
+    # if home_score > away_score:
+    #     tweet_text = (
+    #         f"At the end of the {period_ordinal} period the {home_team_names.get('short_name')} "
+    #         f"lead the {away_team_names.get('short_name')} by a score of {home_score} to {away_score}."
+    #     )
+    # elif away_score > home_score:
+    #     tweet_text = (
+    #         f"At the end of the {period_ordinal} period the {home_team_names.get('short_name')} "
+    #         f"trail the {away_team_names.get('short_name')} by a score of {home_score} to {away_score}."
+    #     )
+    # else:
+    #     tweet_text = (
+    #         f"At the end of the {period_ordinal} period the {home_team_names.get('short_name')} "
+    #         f"and the {away_team_names.get('short_name')} are tied at {home_score}."
+    #     )
 
     # Send the completed shotmap tweet
-    status = send_shotmap_tweet(testing=testing, images=[completed_path], tweet_text=tweet_text)
+    shotmap_files = [completed_path, completed_path_5v5]
+    status = send_shotmap_tweet(testing=testing, images=shotmap_files, tweet_text=tweet_text)
 
