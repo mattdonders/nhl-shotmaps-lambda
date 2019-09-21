@@ -39,6 +39,10 @@ def get_game_id(event: dict):
     game_id = event.get("game_id")
     game_id = game_id if game_id is not None else os.environ.get("GAMEID")
 
+    # If we are using the lambda trigger function, get the testing variable
+    trigger_testing = event.get("testing")
+    TESTING = trigger_testing if trigger_testing is not None else TESTING
+
     if not game_id and event.get("Records") is not None:
         logging.info(
             "Game ID is still none - this is an SNS message & the gameId is contained in the message field."

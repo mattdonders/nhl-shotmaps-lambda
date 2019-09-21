@@ -48,7 +48,7 @@ def get_intermission_info(livefeed):
 def trigger_lambda(game_id):
     logging.info("Triggering the AWS Shotmaps Lambda now!")
     lambda_client = boto3.client("lambda")
-    payload = {"game_id": game_id}
+    payload = {"game_id": game_id, "testing": False}
     invoke_response = lambda_client.invoke(
         FunctionName=LAMBDA_ARN, InvocationType="RequestResponse", Payload=json.dumps(payload)
     )
