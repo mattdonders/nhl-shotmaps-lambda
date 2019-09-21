@@ -16,12 +16,12 @@ logger.setLevel(logging.INFO)
 ordinal = lambda n: "%d%s" % (n, "tsnrhtdd"[(math.floor(n / 10) % 10 != 1) * (n % 10 < 4) * n % 10 :: 4])
 
 
-def send_shotmap_tweet(testing: bool, completed_path: str, tweet_text: str):
+def send_shotmap_tweet(testing: bool, images: list, tweet_text: str):
     """ Takes a completed shotmap path & some text and sends out a tweet.
         Twitter keys are stored in environment variables.
 
     Args:
-        completed_path: The path to the completed shotmap
+        images: A list of paths to the completed shotmap(s)
         tweet_text: Any text to send alongside the string
 
     Returns:
@@ -45,7 +45,10 @@ def send_shotmap_tweet(testing: bool, completed_path: str, tweet_text: str):
     api = tweepy.API(auth)
 
     try:
-        if api.update_with_media(completed_path, tweet_text):
+        # For multiple images, use the media upload API
+        # https://github.com/tweepy/tweepy/issues/724#issuecomment-215927647
+        media_ids = [api.media_upload(i).media_id_string for i in images]
+        if api.update_status(status=tweet_text, media_ids=media_ids):
             return True
     except tweepy.error.TweepError as e:
         return e
@@ -145,14 +148,13 @@ def lambda_handler(event, context):
     logging.info("Extracting only corsi events to graph on the shotmap.")
     home_df, away_df = clean_pbp.split_df(pbp_df, home_team)
 
-    logging.debug("Home DataFrame:")
-    logging.debug(home_df[["xc", "yc"]])
-
-    logging.debug("Away DataFrame:")
-    logging.debug(away_df[["xc", "yc"]])
+    logging.info("Create 5v5 versions of each home & away shotmap.")
+    home_df_5v5 = home_df.loc[home_df["strength"] == "5x5"]
+    away_df_5v5 = away_df.loc[away_df["strength"] == "5x5"]
 
     # Generate the Shotmap
     completed_path = shotmap.generate_shotmap(home_df=home_df, away_df=away_df)
+    completed_path_5v5 = shotmap.generate_shotmap(home_df=home_df_5v5, away_df=away_df_5v5)
 
     # Instead of using the last row, try using the max function across those columns
     period = pbp_df.period.max()
@@ -183,7 +185,5 @@ def lambda_handler(event, context):
         )
 
     # Send the completed shotmap tweet
-    status = send_shotmap_tweet(
-        testing=testing, completed_path=completed_path, tweet_text=tweet_text
-    )
+    status = send_shotmap_tweet(testing=testing, images=[completed_path], tweet_text=tweet_text)
 
