@@ -1,3 +1,4 @@
+import argparse
 import json
 import logging
 import os
@@ -17,6 +18,7 @@ TEST_TOPICS = [
     "arn:aws:sns:us-east-1:024303108096:POC-NHLP3-Play-by-Play-Events",
     "arn:aws:sns:us-east-1:627812672245:NHLP3-Play-by-Play-Events",
 ]
+
 
 
 def get_game_id(event: dict):
