@@ -1,3 +1,4 @@
+import json
 import logging
 import sys
 from datetime import datetime
@@ -9,7 +10,9 @@ from dateutil import tz
 
 # Setup basic logging functionality
 logging.basicConfig(
-    level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S", format="%(asctime)s - %(module)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+    format="%(asctime)s - %(module)s - %(levelname)s - %(message)s",
 )
 
 # Set UTZ & Local Timezones
@@ -22,6 +25,21 @@ cron = CronTab(user=True)
 # Remove all old lambda trigger functions
 logging.info("Removing all old Lambda trigger schedules.")
 cron.remove_all(comment="Lambda Shotmap Trigger")
+
+
+def slack_webhook(icon, msg):
+    slack_url = ""
+    slack_data = {"username": "shotmap cron scheduler", "icon_emoji": icon, "text": msg}
+
+    response = requests.post(
+        slack_url, data=json.dumps(slack_data), headers={"Content-Type": "application/json"}
+    )
+
+    if response.status_code != 200:
+        raise ValueError(
+            "Request to slack returned an error %s, the response is:\n%s"
+            % (response.status_code, response.text)
+        )
 
 
 def is_game_today():
@@ -60,12 +78,19 @@ if __name__ == "__main__":
         hour = game_date_local.hour
 
         # Generate crontab object
-        logging.info("Creating crontab object for %s vs. %s (%s) @ %s", home_team, away_team, game_id, game_date_local_str)
+        logging.info(
+            "Creating crontab object for %s vs. %s (%s) @ %s",
+            home_team,
+            away_team,
+            game_id,
+            game_date_local_str,
+        )
         cmd = f"python lambda_trigger.py --gameId={game_id}"
         job = cron.new(command=cmd, comment="Lambda Shotmap Trigger")
         job.minute.on(minute)
         job.hour.on(hour)
-        # cron = f"{hour} {minute} * * * python lambda_trigger.py --gameId={game_id}"
-        # print(cron)
+        logging.info("CRON JOB: %s", job)
 
-    print(cron)
+    # print(cron)
+    slack_webhook(icon=":alarm_clock:", msg=f"Scheduling the following shotmap cron jobs today:\n{cron}")
+    cron.write()
