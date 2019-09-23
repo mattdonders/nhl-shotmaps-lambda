@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+import os
 import sys
 import time
 from datetime import datetime
@@ -8,18 +9,15 @@ from datetime import datetime
 import boto3
 import dateutil.parser
 import requests
+import yaml
 from crontab import CronTab
 from dateutil import tz
 
 SLEEP_TIME = 60
-LAMBDA_ARN = ""
 
-# Setup basic logging functionality
-logging.basicConfig(
-    level=logging.INFO,
-    datefmt="%Y-%m-%d %H:%M:%S",
-    format="%(asctime)s - %(module)s - %(levelname)s - %(message)s",
-)
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.yml")
+LOGS_PATH = os.path.join(PROJECT_ROOT, "logs")
 
 
 def parse_arguments():
@@ -45,12 +43,12 @@ def get_intermission_info(livefeed):
     return is_intermission, intermission_info
 
 
-def trigger_lambda(game_id):
+def trigger_lambda(game_id, lambda_arn):
     logging.info("Triggering the AWS Shotmaps Lambda now!")
     lambda_client = boto3.client("lambda")
     payload = {"game_id": game_id, "testing": False}
     invoke_response = lambda_client.invoke(
-        FunctionName=LAMBDA_ARN, InvocationType="RequestResponse", Payload=json.dumps(payload)
+        FunctionName=lambda_arn, InvocationType="RequestResponse", Payload=json.dumps(payload)
     )
 
     return invoke_response
@@ -60,41 +58,67 @@ if __name__ == "__main__":
     args = parse_arguments()
     game_id = args.gameid
 
+    # Load Configuration File
+    with open(CONFIG_PATH) as ymlfile:
+        config = yaml.load(ymlfile, Loader=yaml.FullLoader)
+
+    LAMBDA_ARN = config["script"]["aws_lambda_arn"]
+
+    # Setup basic logging functionality
+    log_file_name = datetime.now().strftime(config["script"]["trigger_log_file"] + "-" + game_id + ".log")
+    log_file = os.path.join(LOGS_PATH, log_file_name)
+    logging.basicConfig(
+        filename=log_file,
+        level=logging.INFO,
+        datefmt="%Y-%m-%d %H:%M:%S",
+        format="%(asctime)s - %(module)s - %(levelname)s - %(message)s",
+    )
+
     # Loop over this until the game ends and we use sys.exit to complete.
     while True:
-        # Get the livefeed & intermission information
-        livefeed = get_livefeed(game_id)
+        try:
+            # Get the livefeed & intermission information
+            livefeed = get_livefeed(game_id)
 
-        # Check game status
-        game_state = livefeed["gameData"]["status"]["abstractGameState"]
+            # Check game status
+            game_state = livefeed["gameData"]["status"]["abstractGameState"]
 
-        if game_state == "Final":
-            logging.info("Game is now final - send one final (end of game) shotmap & exit.")
-            lambda_response = trigger_lambda(game_id)
-            logging.info(lambda_response)
-            sys.exit()
+            if game_state == "Final":
+                logging.info("Game is now final - send one final (end of game) shotmap & exit.")
+                lambda_response = trigger_lambda(game_id=game_id, lambda_arn=LAMBDA_ARN)
+                logging.info(lambda_response)
+                sys.exit()
 
-        period = livefeed["liveData"]["linescore"]["currentPeriod"]
-        period_ordinal = livefeed["liveData"]["linescore"]["currentPeriodOrdinal"]
-        period_remain = livefeed["liveData"]["linescore"]["currentPeriodTimeRemaining"]
+            if game_state == "Preview":
+                logging.info("Game is in Preview - sleep for designated game time before looping.")
+                time.sleep(SLEEP_TIME)
+                continue
 
-        is_intermission, intermission_info = get_intermission_info(livefeed)
-        if is_intermission:
-            lambda_response = trigger_lambda(game_id)
-            logging.info(lambda_response)
+            period = livefeed["liveData"]["linescore"]["currentPeriod"]
+            period_ordinal = livefeed["liveData"]["linescore"]["currentPeriodOrdinal"]
+            period_remain = livefeed["liveData"]["linescore"]["currentPeriodTimeRemaining"]
 
-            logging.info(
-                "Game is currently in intermission. Add 60 seconds to intermission time to avoid a re-trigger."
-            )
-            sleep_time = intermission_info["intermissionTimeRemaining"] + 60
-            logging.info("Sleeping for %s seconds now.", sleep_time)
-            time.sleep(sleep_time)
-        else:
-            logging.info(
-                "Not currently in intermission - %s remaining in the %s period.",
-                period_remain,
-                period_ordinal,
-            )
+            is_intermission, intermission_info = get_intermission_info(livefeed)
+            if is_intermission:
+                lambda_response = trigger_lambda(game_id=game_id, lambda_arn=LAMBDA_ARN)
+                logging.info(lambda_response)
 
-            logging.info("-" * 60)
+                logging.info(
+                    "Game is currently in intermission. Add 60 seconds to intermission time to avoid a re-trigger."
+                )
+                sleep_time = intermission_info["intermissionTimeRemaining"] + 60
+                logging.info("Sleeping for %s seconds now.", sleep_time)
+                time.sleep(sleep_time)
+            else:
+                logging.info(
+                    "Not currently in intermission - %s remaining in the %s period.",
+                    period_remain,
+                    period_ordinal,
+                )
+
+                logging.info("-" * 60)
+                time.sleep(SLEEP_TIME)
+        except Exception as e:
+            logging.warning("Ran into an exception during this loop iteration - sleep & try again.")
+            logging.warning(e)
             time.sleep(SLEEP_TIME)
