@@ -14,8 +14,6 @@ PYTHON_EXEC = sys.executable
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.yml")
 LOGS_PATH = os.path.join(PROJECT_ROOT, "logs")
-from crontab import CronTab
-from dateutil import tz
 
 # Set UTZ & Local Timezones
 from_zone = tz.tzutc()
@@ -101,7 +99,7 @@ if __name__ == "__main__":
             game_id,
             game_date_local_str,
         )
-        
+
         cmd = f"{PYTHON_EXEC} {PROJECT_ROOT}/lambda_trigger.py --gameid={game_id}"
         job = cron.new(command=cmd, comment="Lambda Shotmap Trigger")
         job.minute.on(minute)
