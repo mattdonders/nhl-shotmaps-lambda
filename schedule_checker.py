@@ -1,19 +1,21 @@
 import json
 import logging
+import os
 import sys
 from datetime import datetime
 
 import dateutil.parser
 import requests
+import yaml
 from crontab import CronTab
 from dateutil import tz
 
-# Setup basic logging functionality
-logging.basicConfig(
-    level=logging.INFO,
-    datefmt="%Y-%m-%d %H:%M:%S",
-    format="%(asctime)s - %(module)s - %(levelname)s - %(message)s",
-)
+PYTHON_EXEC = sys.executable
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.yml")
+LOGS_PATH = os.path.join(PROJECT_ROOT, "logs")
+from crontab import CronTab
+from dateutil import tz
 
 # Set UTZ & Local Timezones
 from_zone = tz.tzutc()
@@ -27,12 +29,11 @@ logging.info("Removing all old Lambda trigger schedules.")
 cron.remove_all(comment="Lambda Shotmap Trigger")
 
 
-def slack_webhook(icon, msg):
-    slack_url = ""
+def slack_webhook(webhook_url, icon, msg):
     slack_data = {"username": "shotmap cron scheduler", "icon_emoji": icon, "text": msg}
 
     response = requests.post(
-        slack_url, data=json.dumps(slack_data), headers={"Content-Type": "application/json"}
+        webhook_url, data=json.dumps(slack_data), headers={"Content-Type": "application/json"}
     )
 
     if response.status_code != 200:
@@ -58,6 +59,21 @@ def is_game_today():
 
 
 if __name__ == "__main__":
+
+    # Load Configuration File
+    with open(CONFIG_PATH) as ymlfile:
+        config = yaml.load(ymlfile, Loader=yaml.FullLoader)
+
+    # Setup basic logging functionality
+    log_file_name = datetime.now().strftime(config["script"]["scheduler_log_file"] + "-%Y%m%d%H%M%s.log")
+    log_file = os.path.join(LOGS_PATH, log_file_name)
+    logging.basicConfig(
+        filename=log_file,
+        level=logging.INFO,
+        datefmt="%Y-%m-%d %H:%M:%S",
+        format="%(asctime)s - %(module)s - %(levelname)s - %(message)s",
+    )
+
     game_today, games = is_game_today()
     if not game_today:
         logging.info("No games scheduled today - nothing to setup via cron. Exiting now.")
@@ -85,12 +101,17 @@ if __name__ == "__main__":
             game_id,
             game_date_local_str,
         )
-        cmd = f"python lambda_trigger.py --gameId={game_id}"
+        
+        cmd = f"{PYTHON_EXEC} {PROJECT_ROOT}/lambda_trigger.py --gameid={game_id}"
         job = cron.new(command=cmd, comment="Lambda Shotmap Trigger")
         job.minute.on(minute)
         job.hour.on(hour)
         logging.info("CRON JOB: %s", job)
 
     # print(cron)
-    slack_webhook(icon=":alarm_clock:", msg=f"Scheduling the following shotmap cron jobs today:\n{cron}")
+    slack_webhook(
+        webhook_url=config["script"]["slack_webhook"],
+        icon=":alarm_clock:",
+        msg=f"Scheduling the following shotmap cron jobs today:\n{cron}",
+    )
     cron.write()

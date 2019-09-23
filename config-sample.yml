@@ -1,0 +1,5 @@
+script:
+    scheduler_log_file: NHLShotmapsScheduler
+    trigger_log_file: NHLShotmapsLambda
+    slack_webhook:
+    aws_lambda_arn:
