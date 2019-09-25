@@ -22,10 +22,6 @@ to_zone = tz.tzlocal()
 # Get a instance of the current user crontab
 cron = CronTab(user=True)
 
-# Remove all old lambda trigger functions
-logging.info("Removing all old Lambda trigger schedules.")
-cron.remove_all(comment="Lambda Shotmap Trigger")
-
 
 def slack_webhook(webhook_url, icon, msg):
     slack_data = {"username": "shotmap cron scheduler", "icon_emoji": icon, "text": msg}
@@ -57,6 +53,8 @@ def is_game_today():
 
 
 if __name__ == "__main__":
+    # Generate a blank list to hold games for Slack notification
+    slack_games = list()
 
     # Load Configuration File
     with open(CONFIG_PATH) as ymlfile:
@@ -71,6 +69,10 @@ if __name__ == "__main__":
         datefmt="%Y-%m-%d %H:%M:%S",
         format="%(asctime)s - %(module)s - %(levelname)s - %(message)s",
     )
+
+    # Remove all old lambda trigger functions
+    logging.info("Removing all old Lambda trigger schedules.")
+    cron.remove_all(comment="Lambda Shotmap Trigger")
 
     game_today, games = is_game_today()
     if not game_today:
@@ -91,6 +93,10 @@ if __name__ == "__main__":
         minute = game_date_local.minute
         hour = game_date_local.hour
 
+        # Generate Slack String
+        slack_str = f"{game_date_local_str} - {home_team} vs. {away_team} ({game_id})"
+        slack_games.append(slack_str)
+
         # Generate crontab object
         logging.info(
             "Creating crontab object for %s vs. %s (%s) @ %s",
@@ -107,9 +113,10 @@ if __name__ == "__main__":
         logging.info("CRON JOB: %s", job)
 
     # print(cron)
+    slack_msg = "\n".join(slack_games)
     slack_webhook(
         webhook_url=config["script"]["slack_webhook"],
         icon=":alarm_clock:",
-        msg=f"Scheduling the following shotmap cron jobs today:\n{cron}",
+        msg=f"Scheduling the following shotmap cron jobs today:\n{slack_msg}",
     )
     cron.write()

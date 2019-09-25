@@ -3,6 +3,7 @@ import logging
 import math
 import os
 
+import requests
 import tweepy
 import pandas as pd
 
@@ -14,6 +15,31 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 ordinal = lambda n: "%d%s" % (n, "tsnrhtdd"[(math.floor(n / 10) % 10 != 1) * (n % 10 < 4) * n % 10 :: 4])
+
+
+def send_shotmap_discord(testing: bool, images: list, text: str):
+    """ Takes a completed shotmap path & some text and sends out a message to a Discord webhook.
+        Discord webhook URLs are stored in environment variables.
+
+    Args:
+        images: A list of paths to the completed shotmap(s)
+        text: Any text to send alongside the images
+
+    Returns:
+        True if Discord sent or error if failed
+    """
+
+    # Create an empty list of files
+    files = dict()
+
+    webhook_url = os.environ.get("DISCORD_URL") if not testing else os.environ.get("DEBUG_DISCORD_URL")
+    payload = {"content": text}
+
+    for idx, image in enumerate(images):
+        files_key = f"file{idx}"
+        files[files_key] = open(image, "rb")
+
+    response = requests.post(webhook_url, files=files, data=payload)
 
 
 def send_shotmap_tweet(testing: bool, images: list, tweet_text: str):
@@ -157,12 +183,13 @@ def lambda_handler(event, context):
 
     # Instead of using the last row, try using the max function across those columns
     period = pbp_df.period.max()
-    print(period)
     period_ordinal = ordinal(period)
     home_score = pbp_df.home_score.max()
-    print(home_score)
     away_score = pbp_df.away_score.max()
-    print(away_score)
+
+    # Now that we have the scores, we can do one more game end check
+    # If the period is 3 or higher and the scores are difference
+    game_end = True if not game_end and period >= 3 and away_score != home_score else game_end
 
     home_team_names = get_team_from_abbreviation(home_team)
     away_team_names = get_team_from_abbreviation(away_team)
@@ -187,38 +214,31 @@ def lambda_handler(event, context):
     game_hashtag = f"#{away_team}vs{home_team}"
     game_status = "game" if game_end else f"{period_ordinal} period"
 
-    if home_score > away_score and game_end:
-        lead_trail_status = "defeat"
-    elif home_score > away_score and not game_end:
-        lead_trail_status = "lead"
-    elif home_score < away_score and game_end:
-        lead_trail_status = "lose to"
-    elif home_score < away_score and not game_end:
-        lead_trail_status = "trail"
+    if home_score == away_score:
+        tweet_text = (
+            f"At the end of the {period_ordinal} period, the {home_team_short} & "
+            f"{away_team_short} are tied at 1."
+            f"\n\n{game_hashtag}"
+        )
 
-    tweet_text = (
-        f"At the end of the {game_status} the {home_team_short} "
-        f"{lead_trail_status} the {away_team_short} by a score of {home_score} to {away_score}."
-        f"\n\n{game_hashtag}"
-    )
+    else:
+        if home_score > away_score and game_end:
+            lead_trail_status = "defeat"
+        elif home_score > away_score and not game_end:
+            lead_trail_status = "lead"
+        elif home_score < away_score and game_end:
+            lead_trail_status = "lose to"
+        elif home_score < away_score and not game_end:
+            lead_trail_status = "trail"
 
-    # if home_score > away_score:
-    #     tweet_text = (
-    #         f"At the end of the {period_ordinal} period the {home_team_names.get('short_name')} "
-    #         f"lead the {away_team_names.get('short_name')} by a score of {home_score} to {away_score}."
-    #     )
-    # elif away_score > home_score:
-    #     tweet_text = (
-    #         f"At the end of the {period_ordinal} period the {home_team_names.get('short_name')} "
-    #         f"trail the {away_team_names.get('short_name')} by a score of {home_score} to {away_score}."
-    #     )
-    # else:
-    #     tweet_text = (
-    #         f"At the end of the {period_ordinal} period the {home_team_names.get('short_name')} "
-    #         f"and the {away_team_names.get('short_name')} are tied at {home_score}."
-    #     )
+        tweet_text = (
+            f"At the end of the {game_status} the {home_team_short} "
+            f"{lead_trail_status} the {away_team_short} by a score of {home_score} to {away_score}."
+            f"\n\n{game_hashtag}"
+        )
 
     # Send the completed shotmap tweet
     shotmap_files = [completed_path, completed_path_5v5]
     status = send_shotmap_tweet(testing=testing, images=shotmap_files, tweet_text=tweet_text)
+    discord_status = send_shotmap_discord(testing=testing, images=shotmap_files, text=tweet_text)
 

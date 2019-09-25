@@ -14,10 +14,11 @@ from crontab import CronTab
 from dateutil import tz
 
 SLEEP_TIME = 60
+
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.yml")
 LOGS_PATH = os.path.join(PROJECT_ROOT, "logs")
-LAMBDA_ARN = ""
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
