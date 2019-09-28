@@ -221,7 +221,7 @@ def lambda_handler(event, context):
     if home_score == away_score:
         tweet_text = (
             f"At the end of the {period_ordinal} period, the {home_team_short} & "
-            f"{away_team_short} are tied at 1."
+            f"{away_team_short} are tied at {home_score}."
             f"\n\n{game_hashtag}"
         )
 

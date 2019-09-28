@@ -83,9 +83,14 @@ if __name__ == "__main__":
             # Check game status
             game_state = livefeed["gameData"]["status"]["abstractGameState"]
 
+            # Get required attributes for lambda trigger
+            linescore = livefeed["liveData"]["linescore"]
+            home_score = linescore["teams"]["home"]["goals"]
+            away_score = linescore["teams"]["away"]["goals"]
+
             if game_state == "Final":
                 logging.info("Game is now final - send one final (end of game) shotmap & exit.")
-                lambda_response = trigger_lambda(game_id=game_id, lambda_arn=LAMBDA_ARN)
+                lambda_response = trigger_lambda(game_id=game_id, lambda_arn=LAMBDA_ARN, home_score=home_score, away_score=away_score)
                 logging.info(lambda_response)
                 sys.exit()
 
@@ -93,11 +98,6 @@ if __name__ == "__main__":
                 logging.info("Game is in Preview - sleep for designated game time before looping.")
                 time.sleep(SLEEP_TIME)
                 continue
-
-            # Get required attributes for lambda trigger
-            linescore = livefeed["liveData"]["linescore"]
-            home_score = linescore["teams"]["home"]["goals"]
-            away_score = linescore["teams"]["away"]["goals"]
 
             period = livefeed["liveData"]["linescore"]["currentPeriod"]
             period_ordinal = livefeed["liveData"]["linescore"]["currentPeriodOrdinal"]
