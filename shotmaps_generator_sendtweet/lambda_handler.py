@@ -91,37 +91,37 @@ def get_team_from_abbreviation(abbreviation: str):
     """
 
     team_name_dict = {
-        "NJD": {"team_name": "New Jersey Devils", "short_name": "Devils"},
-        "NYI": {"team_name": "New York Islanders", "short_name": "Islanders"},
-        "NYR": {"team_name": "New York Rangers", "short_name": "Rangers"},
-        "PHI": {"team_name": "Philadelphia Flyers", "short_name": "Flyers"},
-        "PIT": {"team_name": "Pittsburgh Penguins", "short_name": "Penguins"},
-        "BOS": {"team_name": "Boston Bruins", "short_name": "Bruins"},
-        "BUF": {"team_name": "Buffalo Sabres", "short_name": "Sabres"},
-        "MTL": {"team_name": "Montréal Canadiens", "short_name": "Canadiens"},
-        "OTT": {"team_name": "Ottawa Senators", "short_name": "Senators"},
-        "TOR": {"team_name": "Toronto Maple Leafs", "short_name": "Maple Leafs"},
-        "CAR": {"team_name": "Carolina Hurricanes", "short_name": "Hurricanes"},
-        "FLA": {"team_name": "Florida Panthers", "short_name": "Panthers"},
-        "TBL": {"team_name": "Tampa Bay Lightning", "short_name": "Lightning"},
-        "WSH": {"team_name": "Washington Capitals", "short_name": "Capitals"},
-        "CHI": {"team_name": "Chicago Blackhawks", "short_name": "Blackhawks"},
-        "DET": {"team_name": "Detroit Red Wings", "short_name": "Red Wings"},
-        "NSH": {"team_name": "Nashville Predators", "short_name": "Predators"},
-        "STL": {"team_name": "St. Louis Blues", "short_name": "Blues"},
-        "CGY": {"team_name": "Calgary Flames", "short_name": "Flames"},
-        "COL": {"team_name": "Colorado Avalanche", "short_name": "Avalanche"},
-        "EDM": {"team_name": "Edmonton Oilers", "short_name": "Oilers"},
-        "VAN": {"team_name": "Vancouver Canucks", "short_name": "Canucks"},
-        "ANA": {"team_name": "Anaheim Ducks", "short_name": "Ducks"},
-        "DAL": {"team_name": "Dallas Stars", "short_name": "Stars"},
-        "LAK": {"team_name": "Los Angeles Kings", "short_name": "Kings"},
-        "SJS": {"team_name": "San Jose Sharks", "short_name": "Sharks"},
-        "CBJ": {"team_name": "Columbus Blue Jackets", "short_name": "Blue Jackets"},
-        "MIN": {"team_name": "Minnesota Wild", "short_name": "Wild"},
-        "WPG": {"team_name": "Winnipeg Jets", "short_name": "Jets"},
-        "ARI": {"team_name": "Arizona Coyotes", "short_name": "Coyotes"},
-        "VGK": {"team_name": "Vegas Golden Knights", "short_name": "Golden Knights"},
+        "NJD": {"team_name": "New Jersey Devils", "short_name": "Devils", "hashtag": "#NJDevils"},
+        "NYI": {"team_name": "New York Islanders", "short_name": "Islanders", "hashtag": "#Isles"},
+        "NYR": {"team_name": "New York Rangers", "short_name": "Rangers", "hashtag": "#NYR"},
+        "PHI": {"team_name": "Philadelphia Flyers", "short_name": "Flyers", "hashtag": "#LetsGoFlyers"},
+        "PIT": {"team_name": "Pittsburgh Penguins", "short_name": "Penguins", "hashtag": "#LetsGoPens"},
+        "BOS": {"team_name": "Boston Bruins", "short_name": "Bruins", "hashtag": "#NHLBruins"},
+        "BUF": {"team_name": "Buffalo Sabres", "short_name": "Sabres", "hashtag": "#Sabres"},
+        "MTL": {"team_name": "Montréal Canadiens", "short_name": "Canadiens", "hashtag": "#GoHabsGo"},
+        "OTT": {"team_name": "Ottawa Senators", "short_name": "Senators", "hashtag": "#GoSensGo"},
+        "TOR": {"team_name": "Toronto Maple Leafs", "short_name": "Maple Leafs", "hashtag": "#LeafsForever"},
+        "CAR": {"team_name": "Carolina Hurricanes", "short_name": "Hurricanes", "hashtag": "#TakeWarning"},
+        "FLA": {"team_name": "Florida Panthers", "short_name": "Panthers", "hashtag": "#FlaPanthers"},
+        "TBL": {"team_name": "Tampa Bay Lightning", "short_name": "Lightning", "hashtag": "#GoBolts"},
+        "WSH": {"team_name": "Washington Capitals", "short_name": "Capitals", "hashtag": "#ALLCAPS"},
+        "CHI": {"team_name": "Chicago Blackhawks", "short_name": "Blackhawks", "hashtag": "#Blackhawks"},
+        "DET": {"team_name": "Detroit Red Wings", "short_name": "Red Wings", "hashtag": "#LGRW"},
+        "NSH": {"team_name": "Nashville Predators", "short_name": "Predators", "hashtag": "#Preds"},
+        "STL": {"team_name": "St. Louis Blues", "short_name": "Blues", "hashtag": "#stlblues"},
+        "CGY": {"team_name": "Calgary Flames", "short_name": "Flames", "hashtag": "#Flames"},
+        "COL": {"team_name": "Colorado Avalanche", "short_name": "Avalanche", "hashtag": "#GoAvsGo"},
+        "EDM": {"team_name": "Edmonton Oilers", "short_name": "Oilers", "hashtag": "#LetsGoOilers"},
+        "VAN": {"team_name": "Vancouver Canucks", "short_name": "Canucks", "hashtag": "#Canucks"},
+        "ANA": {"team_name": "Anaheim Ducks", "short_name": "Ducks", "hashtag": "#LetsGoDucks"},
+        "DAL": {"team_name": "Dallas Stars", "short_name": "Stars", "hashtag": "#GoStars"},
+        "LAK": {"team_name": "Los Angeles Kings", "short_name": "Kings", "hashtag": "#GoKingsGo"},
+        "SJS": {"team_name": "San Jose Sharks", "short_name": "Sharks", "hashtag": "#SJSharks"},
+        "CBJ": {"team_name": "Columbus Blue Jackets", "short_name": "Blue Jackets", "hashtag": "#CBJ"},
+        "MIN": {"team_name": "Minnesota Wild", "short_name": "Wild", "hashtag": "#mnwild"},
+        "WPG": {"team_name": "Winnipeg Jets", "short_name": "Jets", "hashtag": "#GoJetsGo"},
+        "ARI": {"team_name": "Arizona Coyotes", "short_name": "Coyotes", "hashtag": "#OurPack"},
+        "VGK": {"team_name": "Vegas Golden Knights", "short_name": "Golden Knights", "hashtag": "#VegasBorn"},
     }
 
     return team_name_dict.get(abbreviation)
@@ -184,8 +184,10 @@ def lambda_handler(event, context):
     # Instead of using the last row, try using the max function across those columns
     period = pbp_df.period.max()
     period_ordinal = ordinal(period)
-    home_score = pbp_df.home_score.max()
-    away_score = pbp_df.away_score.max()
+
+    # Get scores from event payload
+    home_score = event.get("home_score")
+    away_score = event.get("away_score")
 
     # Now that we have the scores, we can do one more game end check
     # If the period is 3 or higher and the scores are difference
@@ -210,7 +212,9 @@ def lambda_handler(event, context):
 
     # Generate Tweet Strings Dynamically
     home_team_short = home_team_names["short_name"]
+    home_team_hashtag = home_team_names["hashtag"]
     away_team_short = away_team_names["short_name"]
+    away_team_hashtag = away_team_names["hashtag"]
     game_hashtag = f"#{away_team}vs{home_team}"
     game_status = "game" if game_end else f"{period_ordinal} period"
 
@@ -234,7 +238,7 @@ def lambda_handler(event, context):
         tweet_text = (
             f"At the end of the {game_status} the {home_team_short} "
             f"{lead_trail_status} the {away_team_short} by a score of {home_score} to {away_score}."
-            f"\n\n{game_hashtag}"
+            f"\n\n{home_team_hashtag} {away_team_hashtag} {game_hashtag}"
         )
 
     # Send the completed shotmap tweet

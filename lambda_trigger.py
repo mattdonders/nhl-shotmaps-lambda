@@ -43,10 +43,10 @@ def get_intermission_info(livefeed):
     return is_intermission, intermission_info
 
 
-def trigger_lambda(game_id, lambda_arn):
+def trigger_lambda(game_id, lambda_arn, home_score, away_score):
     logging.info("Triggering the AWS Shotmaps Lambda now!")
     lambda_client = boto3.client("lambda")
-    payload = {"game_id": game_id, "testing": False}
+    payload = {"game_id": game_id, "testing": False, "home_score": home_score, "away_score": away_score}
     invoke_response = lambda_client.invoke(
         FunctionName=lambda_arn, InvocationType="RequestResponse", Payload=json.dumps(payload)
     )
@@ -94,13 +94,20 @@ if __name__ == "__main__":
                 time.sleep(SLEEP_TIME)
                 continue
 
+            # Get required attributes for lambda trigger
+            linescore = livefeed["liveData"]["linescore"]
+            home_score = linescore["teams"]["home"]["goals"]
+            away_score = linescore["teams"]["away"]["goals"]
+
             period = livefeed["liveData"]["linescore"]["currentPeriod"]
             period_ordinal = livefeed["liveData"]["linescore"]["currentPeriodOrdinal"]
             period_remain = livefeed["liveData"]["linescore"]["currentPeriodTimeRemaining"]
 
             is_intermission, intermission_info = get_intermission_info(livefeed)
             if is_intermission:
-                lambda_response = trigger_lambda(game_id=game_id, lambda_arn=LAMBDA_ARN)
+                lambda_response = trigger_lambda(
+                    game_id=game_id, lambda_arn=LAMBDA_ARN, home_score=home_score, away_score=away_score
+                )
                 logging.info(lambda_response)
 
                 logging.info(

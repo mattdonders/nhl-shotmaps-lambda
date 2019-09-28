@@ -20,7 +20,6 @@ TEST_TOPICS = [
 ]
 
 
-
 def get_game_id(event: dict):
     """ Takes the event & tries to determine & validate the Game ID.
 
@@ -88,6 +87,10 @@ def lambda_handler(event, context):
     game_id_dict = get_game_id(event)
     game_id_status = game_id_dict["status"]
 
+    # Get scores from event payload
+    home_score = event.get("home_score")
+    away_score = event.get("away_score")
+
     if not game_id_status:
         logging.error(game_id_dict["msg"])
         return {"status": False, "msg": game_id_dict["msg"]}
@@ -110,7 +113,7 @@ def lambda_handler(event, context):
     pbp.columns = map(str.lower, pbp.columns)
 
     pbp_json = pbp.to_json()
-    payload = {"pbp_json": pbp_json, "testing": TESTING}
+    payload = {"pbp_json": pbp_json, "testing": TESTING, "home_score": home_score, "away_score": away_score}
 
     logging.info("Scraping completed. Triggering the generator & twitter Lambda.")
 
