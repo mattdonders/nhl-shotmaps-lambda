@@ -111,9 +111,9 @@ if __name__ == "__main__":
                 logging.info(lambda_response)
 
                 logging.info(
-                    "Game is currently in intermission. Add 60 seconds to intermission time to avoid a re-trigger."
+                    "Game is currently in intermission. Add 300 seconds (5 minutes) to intermission time to avoid a re-trigger."
                 )
-                sleep_time = intermission_info["intermissionTimeRemaining"] + 60
+                sleep_time = intermission_info["intermissionTimeRemaining"] + 300
                 logging.info("Sleeping for %s seconds now.", sleep_time)
                 time.sleep(sleep_time)
             else:
