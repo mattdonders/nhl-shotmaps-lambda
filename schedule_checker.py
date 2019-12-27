@@ -43,7 +43,7 @@ def is_game_today():
     url = f"https://statsapi.web.nhl.com/api/v1/schedule?date={today:%Y-%m-%d}&expand=schedule.linescore"
 
     schedule = requests.get(url).json()
-    total_games = schedule["dates"][0]["totalGames"]
+    total_games = schedule["totalGames"]
 
     if total_games == 0:
         return False, None
@@ -77,6 +77,7 @@ if __name__ == "__main__":
     game_today, games = is_game_today()
     if not game_today:
         logging.info("No games scheduled today - nothing to setup via cron. Exiting now.")
+        cron.write()
         sys.exit()
 
     for game in games:
