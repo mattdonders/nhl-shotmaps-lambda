@@ -52,11 +52,11 @@ def get_game_id(event: dict):
         topic = sns_event.get("TopicArn")
 
         # Set TESTING global based on topic name
-        TESTING = False if topic in TEST_TOPICS else True
+        TESTING = True if topic in TEST_TOPICS else False
 
         msg = sns_event.get("Message")
         msg_json = json.loads(msg)
-        game_id = msg_json.get("game_id")
+        game_id = msg_json.get("gamePk")
 
     if not game_id or game_id is None:
         logging.error("An NHL Game ID is required for this script to run.")
@@ -84,12 +84,25 @@ def get_game_id(event: dict):
 
 def lambda_handler(event, context):
     LAMBDA_GENERATOR = os.environ.get("LAMBDA_GENERATOR")
+    IS_SNS_TRIGGER = bool(event.get("Records"))
+
     game_id_dict = get_game_id(event)
     game_id_status = game_id_dict["status"]
 
-    # Get scores from event payload
-    home_score = event.get("home_score")
-    away_score = event.get("away_score")
+    if IS_SNS_TRIGGER:
+        msg = event['Records'][0]['Sns']['Message']
+
+        # Convert Message back to JSON Object
+        msg = json.loads(msg)
+
+        game_id = msg['gamePk']
+        goals = msg['play']['about']['goals']
+        home_score = goals['home']
+        away_score = goals['away']
+    else:
+        # Get scores directly from event payload
+        home_score = event.get("home_score")
+        away_score = event.get("away_score")
 
     if not game_id_status:
         logging.error(game_id_dict["msg"])
@@ -114,6 +127,7 @@ def lambda_handler(event, context):
 
     pbp_json = pbp.to_json()
     payload = {"pbp_json": pbp_json, "testing": TESTING, "home_score": home_score, "away_score": away_score}
+    small_payload = {"game_id": game_id, "testing": TESTING, "home_score": home_score, "away_score": away_score}
 
     logging.info("Scraping completed. Triggering the generator & twitter Lambda.")
 
@@ -122,3 +136,7 @@ def lambda_handler(event, context):
     )
 
     print(invoke_response)
+
+    return {
+        'body': small_payload
+    }
