@@ -51,9 +51,6 @@ def get_game_id(event: dict):
         sns_event = sns_record.get("Sns")
         topic = sns_event.get("TopicArn")
 
-        # Set TESTING global based on topic name
-        TESTING = True if topic in TEST_TOPICS else False
-
         msg = sns_event.get("Message")
         msg_json = json.loads(msg)
         game_id = msg_json.get("gamePk")
@@ -82,6 +79,28 @@ def get_game_id(event: dict):
     return {"status": True, "game_id": game_id}
 
 
+def check_db_for_last_period(game_id):
+    dynamo_client = boto3_client("dynamodb")
+    response = dynamo_client.get_item(
+        TableName='nhl-shotmaps-tracking',
+        Key={'gamePk': {'N': game_id}}
+    )
+
+    try:
+        item = response['Item']
+        last_period_processed = int(item['lastPeriodProcessed']['N'])
+    except KeyError:
+        logging.info("NEW Game Detected - record does not exist yet.")
+        last_period_processed = 0
+
+    return last_period_processed
+
+
+def is_event_period_newer(game_id, event_period):
+    db_last_period = check_db_for_last_period(game_id)
+    return bool(event_period > db_last_period)
+
+
 def lambda_handler(event, context):
     LAMBDA_GENERATOR = os.environ.get("LAMBDA_GENERATOR")
     IS_SNS_TRIGGER = bool(event.get("Records"))
@@ -96,6 +115,7 @@ def lambda_handler(event, context):
         msg = json.loads(msg)
 
         game_id = msg['gamePk']
+        period = msg['play']['about']['period']
         goals = msg['play']['about']['goals']
         home_score = goals['home']
         away_score = goals['away']
@@ -111,6 +131,18 @@ def lambda_handler(event, context):
     # If status is True, set the game_id variable
     game_id = game_id_dict["game_id"]
 
+    # Check that the event period is greater than the last processed period
+    is_event_newer = is_event_period_newer(game_id, period)
+    if not is_event_newer:
+        logging.error("The event received for %s is not newer than the last "
+                      "event recorded in the database - skip this record.", game_id)
+
+        return {
+            'status': 409,
+            'body': 'A shotmap was already produced for this event.'
+        }
+
+    # If all of the above checks pass, scrape the game.
     scraped_data = hockey_scraper.scrape_games([game_id], False, data_format="Pandas")
     pbp = scraped_data.get("pbp")
 
@@ -126,7 +158,7 @@ def lambda_handler(event, context):
     pbp.columns = map(str.lower, pbp.columns)
 
     pbp_json = pbp.to_json()
-    payload = {"pbp_json": pbp_json, "testing": TESTING, "home_score": home_score, "away_score": away_score}
+    payload = {"pbp_json": pbp_json, "game_id": game_id, "testing": TESTING, "home_score": home_score, "away_score": away_score}
     small_payload = {"game_id": game_id, "testing": TESTING, "home_score": home_score, "away_score": away_score}
 
     logging.info("Scraping completed. Triggering the generator & twitter Lambda.")

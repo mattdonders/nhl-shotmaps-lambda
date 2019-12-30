@@ -1,11 +1,14 @@
+import datetime
 import json
 import logging
 import math
 import os
+import time
 
 import requests
 import tweepy
 import pandas as pd
+from boto3 import client as boto3_client
 
 # Custom Imports
 import clean_pbp
@@ -15,6 +18,31 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 ordinal = lambda n: "%d%s" % (n, "tsnrhtdd"[(math.floor(n / 10) % 10 != 1) * (n % 10 < 4) * n % 10 :: 4])
+
+def db_upsert_event(game_id, event_period):
+    current_ts = int(time.time())
+
+    current_dt = datetime.datetime.fromtimestamp(current_ts)
+    ttl_dt = current_dt + datetime.timedelta(days=90)
+    ttl_ts = int(ttl_dt.timestamp())
+
+    dynamo_client = boto3_client("dynamodb")
+    response = dynamo_client.update_item(
+        TableName='nhl-shotmaps-tracking',
+        Key={'gamePk': {'N': game_id}},
+        UpdateExpression="SET lastPeriodProcessed = :period, #ts = :ts, tsPlusTTL = :ts_ttl",
+        ExpressionAttributeNames={
+            "#ts": "timestamp"
+        },
+        ExpressionAttributeValues={
+            ':period': {'N': str(event_period)},
+            ':ts': {'N': str(current_ts)},
+            ':ts_ttl': {'N': str(ttl_ts)}
+        },
+        ReturnValues="ALL_NEW"
+    )
+
+    logging.info("DynamoDB Record Updated: %s", response)
 
 
 def send_shotmap_discord(testing: bool, images: list, text: str):
@@ -93,7 +121,7 @@ def get_team_from_abbreviation(abbreviation: str):
     team_name_dict = {
         "NJD": {"team_name": "New Jersey Devils", "short_name": "Devils", "hashtag": "#NJDevils"},
         "NYI": {"team_name": "New York Islanders", "short_name": "Islanders", "hashtag": "#Isles"},
-        "NYR": {"team_name": "New York Rangers", "short_name": "Rangers", "hashtag": "#PlayLikeANewYorker"},
+        "NYR": {"team_name": "New York Rangers", "short_name": "Rangers", "hashtag": "#NYR"},
         "PHI": {"team_name": "Philadelphia Flyers", "short_name": "Flyers", "hashtag": "#FlyOrDie"},
         "PIT": {"team_name": "Pittsburgh Penguins", "short_name": "Penguins", "hashtag": "#LetsGoPens"},
         "BOS": {"team_name": "Boston Bruins", "short_name": "Bruins", "hashtag": "#NHLBruins"},
@@ -130,6 +158,8 @@ def get_team_from_abbreviation(abbreviation: str):
 def lambda_handler(event, context):
     # logging.info(event)
     testing = event.get("testing")
+    game_id = event.get("game_id")
+    logging
 
     # Get the JSON-serialized DataFrame from the payload & convert back to a DataFrame
     pbp_json = event.get("pbp_json")
@@ -246,3 +276,9 @@ def lambda_handler(event, context):
     status = send_shotmap_tweet(testing=testing, images=shotmap_files, tweet_text=tweet_text)
     discord_status = send_shotmap_discord(testing=testing, images=shotmap_files, text=tweet_text)
 
+    logging.info("Shotmap Text: %s", tweet_text)
+    logging.info("Twitter Status: %s", status)
+    logging.info("Discord Status: %s", discord_status)
+
+    # Update DynamoDB with last processed period
+    db_upsert_event(game_id, period)
